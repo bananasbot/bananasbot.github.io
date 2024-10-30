@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=JetBrains+Mono">
+	<link rel="stylesheet" href="style.css">
+	<title>Banana Schedule</title>
+
+	<script> // data
+		const crossProduct = (as, bs) => as.reduce((acc, a) => [...acc, ...bs.map(b => [a, b])], []);
+		const posModulus = (n, m) => ((n % m) + m) % m;
+
+		const days = Array.from(new Array(7), (_, i) => i + 1);
+		const hours = [...Array(24).keys()];
+		const ids = crossProduct(days, hours);
+
+		const maxPreference = 6;
+
+
+		/*### DATA ###*/
+		var specs = [];
+		var raids = [];
+		var timezones = [];
+		var player_preferences = [];
+		var player_specs = [];
+
+		function clearPlayerData() {
+			player_preferences = [];
+			player_specs = [];
+		}
+		/*### DATA ###*/
+
+		var dragging = false;
+	</script>
+</head>
+
+<body class="not-selectable hide_overflow" ondragstart="return false;" ondrop="return false;">
+	<div id="import_less" class="import_less">
+		<input type="file" id="import_input" accept=".json" hidden>
+		<label class="button" for="import_input" tabindex="0">Import</label>
+		<p>import the <em>/preferences</em> discord command attachment</p>
+	</div>
+	<div id="import_done" class="hide">
+		<header>
+			<!-- specs -->
+			<div class="dropdown-check-list" tabindex="0">
+				<div class="anchor" id="specs_select">Specs</div>
+				<table id="specs_table">
+					<thead>
+						<tr id="specs_table_header"> </tr>
+					</thead>
+					<tbody id="specs_table_body"> </tbody>
+				</table>
+			</div>
+
+			<!-- buttons -->
+			<select id="timezone_select"></select>
+
+			<!-- <button class="button" id="import_btn">Import</button> -->
+			<!-- <button for="import_input" class="button" id="import_btn">Import</button> -->
+			<input type="file" id="import_input" accept=".json" hidden>
+			<label class="button" for="import_input" tabindex="0">Import</label>
+
+			<button class="button" id="clear_btn">Clear</button>
+			<button class="button " id="export_btn">Copy to Clipboard</button>
+		</header>
+
+		<table id="schedule">
+			<thead>
+				<tr>
+					<th class="first-col"></th>
+					<td class="spacer-col"></td>
+					<th>Mon</th>
+					<td class="spacer-col"></td>
+					<th>Tue</th>
+					<td class="spacer-col"></td>
+					<th>Wed</th>
+					<td class="spacer-col"></td>
+					<th>Thu</th>
+					<td class="spacer-col"></td>
+					<th>Fri</th>
+					<td class="spacer-col"></td>
+					<th>Sat</th>
+					<td class="spacer-col"></td>
+					<th>Sun</th>
+				</tr>
+			</thead>
+
+			<tbody id="schedule_body"> </tbody>
+
+			<tfoot>
+				<tr>
+					<td class="first-col"> -></td>
+					<td class="spacer-col"></td>
+					<th>Tue</th>
+					<td class="spacer-col"></td>
+					<th>Wed</th>
+					<td class="spacer-col"></td>
+					<th>Thu</th>
+					<td class="spacer-col"></td>
+					<th>Fri</th>
+					<td class="spacer-col"></td>
+					<th>Sat</th>
+					<td class="spacer-col"></td>
+					<th>Sun</th>
+					<td class="spacer-col"></td>
+					<th>Mon</th>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+</body>
+
+<script> // id helpers
+	function resolveSchedulingId(d, h) {
+		val = posModulus((d * 24 + h), (24 * 7));
+		return [Math.floor(val / 24), val % 24];
+	}
+
+	function toSchedulingId(d, h) {
+		const [rd, rh] = resolveSchedulingId(d, h);
+		return `${rd}_${rh}`;
+	}
+
+	function toSchedulingIdCurve(d, h) {
+		return `c${toSchedulingId(d, h)}`;
+	}
+
+	function toSpecId(specIdx, raidIdx) {
+		return `${specIdx},${raidIdx}`;
+	}
+</script>
+
+<script> // event handlers
+	function onToggleVisibility(event) {
+		const togglable = document.getElementById('specs_select');
+		if (togglable.parentElement.classList.contains('visible'))
+			togglable.parentElement.classList.remove('visible');
+		else
+			togglable.parentElement.classList.add('visible');
+	}
+
+	function onStartDrag(event, cell) {
+		dragging = true;
+		onUpdateCellPreference(event, cell);
+	}
+
+	function onDrag(event, cell) {
+		if (dragging) {
+			onUpdateCellPreference(event, cell);
+		}
+	}
+
+	function onUpdateCellPreference(event, cell) {
+		const clickX = event.offsetX;
+		const cellWidth = cell.clientWidth;
+
+		const value = Math.floor((clickX / cellWidth) * maxPreference);
+		const bounded_value = Math.max(0, Math.min(value, maxPreference));
+		const [d, h] = cell.id.split("_").map(v => parseInt(v));
+
+		setCellPreference(d, h, bounded_value);
+	}
+</script>
+
+<script> // buttons
+	// import
+	function unpackJson(json) {
+		timezones = json["timezones"];
+		specs = json["specs"];
+		raids = json["raids"];
+		player_specs = json["player_specs"];
+		player_preferences = json["player_preferences"];
+
+		fill();
+		document.getElementById("timezone_select").value = json["player_timezone"];
+	}
+
+	function importPreferences() {
+		const reader = new FileReader();
+		reader.onload = (evt) => {
+			const json = JSON.parse(evt.target.result);
+			unpackJson(json);
+			evt.target.value = null;
+
+		}
+		reader.onerror = (_) => alert(`Error while trying to read: ${error}`);
+
+		const file = document.getElementById("import_input").files[0];
+		if (file) {
+			reader.readAsText(file, "UTF-8");
+
+			document.body.classList.remove("hide_overflow")
+			document.getElementById("import_less").classList.add("hide")
+			document.getElementById("import_done").classList.remove("hide")
+		}
+	}
+
+	//export 
+	function copyToClipboard() {
+		const timezone = makeTimezone();
+		if (timezone === "") {
+			alert("Please configure the timezone");
+		} else {
+			const obj = {
+				timezone: timezone,
+				specs: makeSpecs(),
+				preferences: makePreferences(),
+			};
+
+			navigator.clipboard.writeText(JSON.stringify(obj));
+			alert("Copied to Clipboard");
+		}
+	}
+
+	function makeSpecs() {
+		const vals = {};
+		for (const specIdx in specs) {
+			const spec = specs[specIdx];
+
+			let tmpArr = [];
+			for (const raidIdx in raids) {
+				const raid = raids[raidIdx];
+
+				const checkbox = document.getElementById(toSpecId(specIdx, raidIdx));
+
+				if (checkbox.checked) {
+					tmpArr.push(raid);
+				}
+			}
+			if (tmpArr.length > 0) {
+				vals[spec] = tmpArr;
+			}
+		}
+		return vals;
+	}
+
+	function makeTimezone() {
+		return document.getElementById("timezone_select").value;
+	}
+
+	function makePreferences() {
+		const vals = [];
+		for (const [d, h] of ids) {
+			const cell = document.getElementById(toSchedulingId(d, h));
+			const val = parseInt(cell.getAttribute('data-value'));
+
+			vals.push(val);
+		}
+		return vals;
+	}
+
+	// clear
+	function clear() {
+		if (!confirm("Do you wish to clear all data?")) return;
+
+		clearPlayerData();
+
+		for (const specIdx in specs) {
+			for (const raidIdx in raids) {
+				const checkbox = document.getElementById(toSpecId(specIdx, raidIdx));
+				checkbox.checked = false;
+			}
+		}
+
+		document.getElementById("timezone_select").value = emptyTimezone;
+		for (const [d, h] of ids) {
+			setCellPreference(d, h, 0);
+		}
+
+		document.getElementById("specs_select").parentElement.classList.add("visible");
+	}
+</script>
+
+<script> // schedule table helpers
+	function setCellPreference(d, h, value) {
+		const cell = document.getElementById(toSchedulingId(d, h));
+		updateCell(cell, value);
+
+		updateCurve(d, h - 1);
+		updateCurve(d, h);
+	}
+
+	function updateCell(cell, value) {
+		cell.setAttribute('data-value', value);
+		proportion = (value / (maxPreference - 1)) * 100;
+		cell.style.backgroundImage = `linear-gradient(to right, #e2df21 ${proportion}%, transparent ${proportion}%)`;
+	}
+
+	function updateCurve(d, h) {
+		const cell1 = document.getElementById(toSchedulingId(d, h));
+		const cell2 = document.getElementById(toSchedulingId(d, h + 1));
+
+		const value1 = cell1.getAttribute('data-value');
+		const value2 = cell2.getAttribute('data-value');
+
+		const curveCell = document.getElementById(toSchedulingIdCurve(d, h));
+		const svg = curveCell.querySelector('.bezier');
+		const path = svg.querySelector('path');
+
+		path.setAttribute('d', `M 0,10 L 0,0 l ${value1},0, C ${value1},5, ${value2},5, ${value2},10`);
+	}
+</script>
+
+<script> // filling
+	const emptyTimezone = new Option("", "")
+
+	function fillTimezones() {
+		const options = [emptyTimezone];
+
+		for (const timezone of timezones) {
+			options.push(new Option(timezone, timezone));
+		}
+
+		document.getElementById("timezone_select").replaceChildren(...options);
+	}
+
+	function fillSpecsTableHeader() {
+		const headers = [document.createElement('th')];
+
+		for (const raid of raids) {
+			const th = document.createElement("th");
+			th.textContent = raid;
+			headers.push(th);
+		}
+
+		document.getElementById("specs_table_header").replaceChildren(...headers);
+	}
+
+	function fillSpecsTableBody() {
+		const specsRows = [];
+
+		for (const specIdx in specs) {
+			const spec = specs[specIdx];
+
+			const specName = document.createElement("td");
+			specName.textContent = spec;
+
+			const tds = [specName];
+			for (const raidIdx in raids) {
+
+				const checkbox = document.createElement("input");
+				checkbox.type = "checkbox";
+				checkbox.id = toSpecId(specIdx, raidIdx);
+				checkbox.classList.add("checkbox")
+
+				const specToRaid = document.createElement("td");
+				specToRaid.appendChild(checkbox);
+
+				tds.push(specToRaid);
+			}
+
+			const tr = document.createElement("tr");
+			tr.replaceChildren(...tds);
+
+			specsRows.push(tr);
+		}
+
+		document.getElementById("specs_table_body").replaceChildren(...specsRows);
+	}
+
+	function fillScheduleBody() {
+		// local helpers
+		function createSpacerCol() {
+			const spacer = document.createElement("td");
+			spacer.classList.add("spacer-col");
+			return spacer;
+		}
+
+		function createRow(h) {
+			const hour = document.createElement("td");
+			hour.innerHTML = `<span>at</span> ${h.toString().padStart(2, "0")}<span>:00</span>`;
+
+			const tds = [hour, createSpacerCol()];
+			for (let d = 0; d < 7; d++) {
+				const id = toSchedulingId(d, h);
+
+				const td = document.createElement("td");
+				td.id = id;
+				td.classList.add("interactive");
+				td.setAttribute("data-value", "0");
+				td.addEventListener("mousedown", (e) => onStartDrag(e, td));
+				td.addEventListener("mousemove", (e) => onDrag(e, td));
+
+				tds.push(td);
+				if (d < 6) tds.push(createSpacerCol());
+			}
+
+			const tr = document.createElement("tr");
+			tr.replaceChildren(...tds);
+			return tr;
+		}
+
+		function createCurveRow(h) {
+			const tds = [document.createElement("td"), createSpacerCol()];
+
+			for (let d = 0; d < 7; d++) {
+				const id = toSchedulingIdCurve(d, h);
+
+				const td = document.createElement("td");
+				td.id = id;
+				td.innerHTML = `<svg class="bezier" viewBox="0 0 ${maxPreference - 1} 10" preserveAspectRatio="none"> <path d="" fill="#e2df21"/> </svg>`;
+
+				tds.push(td);
+				if (d < 6) tds.push(createSpacerCol());
+			}
+
+
+			const tr = document.createElement("tr");
+			tr.classList.add("spacer-row");
+			tr.replaceChildren(...tds);
+			return tr;
+		}
+
+		// actual filling
+		const hoursRows = [];
+		for (let i = 0; i < 24; i++) {
+			hoursRows.push(createRow(i), createCurveRow(i));
+		}
+		document.getElementById("schedule_body").replaceChildren(...hoursRows);
+	}
+
+	function fill() {
+		fillTimezones();
+		fillSpecsTableHeader();
+		fillSpecsTableBody();
+		fillScheduleBody();
+
+		for (const spec of Object.keys(player_specs)) {
+			const specIdx = specs.indexOf(spec);
+
+			for (const raid of player_specs[spec]) {
+				const raidIdx = raids.indexOf(raid);
+
+				document.getElementById(toSpecId(specIdx, raidIdx)).checked = 1;
+			}
+		}
+
+		for (const [d, h] of ids) {
+			setCellPreference(d, h, player_preferences[(d - 1) * 24 + h] ?? 0)
+		}
+	}
+</script>
+
+<script> // initializing
+	fill();
+
+	document.addEventListener('mouseup', () => dragging = false);
+
+	document.getElementById('specs_select').addEventListener("click", onToggleVisibility);
+
+	document.getElementById("export_btn").addEventListener("click", (_) => copyToClipboard());
+	document.getElementById("clear_btn").addEventListener("click", (_) => clear());
+
+	document.getElementById("import_input").addEventListener("change", (_) => importPreferences());
+	document.getElementById("import_input").addEventListener("click", (e) => event.target.value = null);
+</script>
+
+</html>
