@@ -26,8 +26,11 @@ class Player:
         self.specs.update({(s, r): 1 for s in specs for r in specs[s]})
         """classes provided by each player for each raid"""
 
-        self.timezone_offset: str = -int(timezone[3:])
-        """the timezone"""
+        self.timezone = timezone
+        """the string representation of the timezone"""
+
+        self.timezone_offset: int = int(timezone[3:])
+        """the timezone hours offset"""
 
         self.preference: dict[Timepoint, Preference] = {
             (h + round(self.timezone_offset)) % setup.T: pref
