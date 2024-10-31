@@ -15,6 +15,7 @@ class Player:
         preferences: list[Preference],
     ):
         """Planner params for players"""
+
         # verify in domain
         if any((p < 0 or config.maxPreference < p) for p in preferences):
             raise f"preference out of bounds"

@@ -13,6 +13,7 @@ class Raid:
         requirements: dict[Capability, int],
     ):
         """Planner params for raid"""
+
         self.id = id
         """the raid id"""
 

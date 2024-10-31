@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import time
 from collections import defaultdict
 
 import discord

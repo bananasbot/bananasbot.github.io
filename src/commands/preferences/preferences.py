@@ -6,7 +6,6 @@ from os.path import join
 
 import discord
 from discord import app_commands
-from discord import File
 from minify_html import minify
 
 import config

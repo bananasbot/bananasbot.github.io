@@ -9,7 +9,7 @@ import pytz
 Spec = str
 Capability = str
 Timepoint = int
-Preference = float
+Preference = int
 
 PlayerId = int
 RaidId = str

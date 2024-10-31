@@ -1,6 +1,3 @@
-from enum import Enum
-from zoneinfo import ZoneInfo
-
 from config import *
 
 
@@ -13,6 +10,7 @@ class Setup:
         spec_can: dict[(Spec, Capability), bool],
     ):
         """Planner params for players"""
+
         self.T: int
         """amount of timepoints"""
 
