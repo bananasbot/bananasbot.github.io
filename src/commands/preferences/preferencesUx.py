@@ -1,4 +1,8 @@
+from os.path import join
+import logging
 import discord.ui
+
+import config
 
 
 class PreferencesEmbed(discord.Embed):
@@ -36,7 +40,7 @@ class PreferencesButtons(discord.ui.View):
 
         self.add_item(
             discord.ui.Button(
-                url="https://pages.github.com/",
+                url="https://bananasbot.github.io/",
                 label="Open Scheduler",
                 emoji="🗓️",
             )
@@ -46,6 +50,9 @@ class PreferencesButtons(discord.ui.View):
         label="Upload Preferences", style=discord.ButtonStyle.blurple, emoji="✅"
     )
     async def upload(self, interaction: discord.Interaction, button: discord.ui.Button):
+        logging.getLogger(PreferencesButtons.__name__).info(
+            f"{interaction.user.id} ({interaction.user.name})"
+        )
         await interaction.response.send_modal(UploadModal())
 
 
@@ -58,16 +65,30 @@ class UploadModal(discord.ui.Modal, title="Upload Preferences"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        print(self.upload.value)
-        # await timetable.save(join(config.playersPath, str(interaction.user.id)))
-        # await interaction.response.send_message("preferences updated.", ephemeral=True)
+        logging.getLogger(UploadModal.__name__).info(
+            f"{interaction.user.id} ({interaction.user.name})"
+        )
 
-        # await interaction.response.send_message(
-        #     f"Thanks for your feedback, {self.name.value}!", ephemeral=True
-        # )
+        dest = join(config.playersPath, f"{interaction.user.id}.json")
+        with open(dest, "w") as text_file:
+            text_file.write(self.upload.value)
+
+        await interaction.response.send_message(
+            "Preferences updated!",
+            ephemeral=True,
+        )
+        await interaction.response.edit_message(
+            content=None,
+            embed=None,
+            view=None,
+            attachments=[],
+        )
 
     async def on_error(self, interaction: discord.Interaction, error: Exception):
         await interaction.response.send_message(
-            "Oops! Something went wrong.", ephemeral=True
+            f"Oops! Something went wrong. {error}", ephemeral=True
         )
         raise error
+
+
+__logger = logging.getLogger("preferencesUx")
