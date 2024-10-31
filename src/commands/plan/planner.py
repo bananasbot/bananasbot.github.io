@@ -60,10 +60,10 @@ class Planner:
         # CONSTRAINTS #
         ###############
 
-        # select_implies_existing_chars
+        # select_implies_can_run
         for pid in players:
             for s in setup.SPECS:
-                solver.Add(selected[(pid, s)] <= players[pid].specs[s])
+                solver.Add(selected[(pid, s)] <= players[pid].specs[(s, raid.id)])
 
         # at_most_one_char_per_player_selected
         for pid in players:
@@ -102,12 +102,15 @@ class Planner:
         # suppress_play
         for pid in players:
             for h in setup.TIMEPOINTS:
+                # plays_means_has_been_selected
                 solver.Add(
                     plays[(pid, h)]
                     <= solver.Sum(selected[(pid, c)] for c in setup.SPECS)
                 )
+                # plays_implies_playhours
                 solver.Add(plays[(pid, h)] <= playhours[h])
-                solver.Add(plays[(pid, h)] <= players[pid].preference[h] * 10)
+                # plays_implies_not_preference_at_0
+                solver.Add(plays[(pid, h)] <= players[pid].preference[h])
 
         #######
         # END #

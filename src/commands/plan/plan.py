@@ -3,6 +3,7 @@ import asyncio
 from collections import defaultdict
 
 import discord
+from discord import Color
 from discord import app_commands
 
 import state
@@ -30,7 +31,7 @@ async def plan(interaction: discord.Interaction, raid: str, timeout: int = 60):
     __logger.info(f"{interaction.user.id} ({interaction.user.name})")
 
     notify_period = 2
-    await interaction.response.send_message("this could take a while...")
+    await interaction.response.defer(thinking=True, ephemeral=True)
 
     planner = asyncio.create_task(
         Planner.plan(
@@ -46,11 +47,14 @@ async def plan(interaction: discord.Interaction, raid: str, timeout: int = 60):
         except asyncio.TimeoutError:
             if ttl <= 0:
                 planner.cancel()
-                await interaction.edit_original_response(content="timeout.")
+                await interaction.response.send_message(
+                    content="timeout.",
+                    ephemeral=True,
+                )
                 return None
             else:
                 await interaction.edit_original_response(
-                    content=f"im still working on it, wait for up to {ttl*notify_period})s ..."
+                    content=f"im still working on it, wait for up to {ttl*notify_period}s ..."
                 )
                 return try_planning(ttl - 1)
 
@@ -62,7 +66,10 @@ async def plan(interaction: discord.Interaction, raid: str, timeout: int = 60):
         for pid, spec in planned:
             spec_to_players[spec].append(pid)
 
-        emb = discord.Embed(title=state.raids[raid].name)
+        emb = discord.Embed(
+            title=state.raids[raid].name,
+            color=Color.brand_green(),
+        )
         for spec in spec_to_players:
             emb.add_field(
                 name=spec,
@@ -70,6 +77,16 @@ async def plan(interaction: discord.Interaction, raid: str, timeout: int = 60):
                 inline=False,
             )
 
+        await interaction.followup.send(embed=emb)
+    else:
+        emb = discord.Embed(
+            title=state.raids[raid].name,
+            color=Color.dark_red(),
+        ).add_field(
+            name="Impossible to solve",
+            value="It could be due to:\n - requirements too strict from Raid\n - too few people available for that Raid",
+            inline=False,
+        )
         await interaction.edit_original_response(content=None, embed=emb)
 
 
