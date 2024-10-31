@@ -1,6 +1,7 @@
 from collections import defaultdict
 import logging
 import io
+import json
 from os.path import join
 
 import discord
@@ -29,24 +30,25 @@ async def preferences(interaction: discord.Interaction):
         if player.specs[(spec, raid)]:
             player_specs[spec].append(raid)
 
-    instance = state.template.instantiate(
-        maxPreference=config.maxPreference,
-        specs=state.setup.SPECS,
-        raids=list(state.raids.keys()),
-        player_specs=dict(player_specs),
-        timezones=config.timezones,
-        preferences=list(player.preference.values()),
-    )
-    instance = minify(instance, minify_js=True, minify_css=True)
-    buf = io.BytesIO(bytes(instance, "ascii"))
-    f = discord.File(buf, filename=f"{interaction.user.name}.html")
+    data: dict = {
+        "specs": state.setup.SPECS,
+        "raids": list(state.raids.keys()),
+        "timezones": config.timezones,
+        "player_timezone": player.timezone,
+        "player_specs": dict(player_specs),
+        "player_preferences": list(player.preference.values()),
+    }
+
+    buf = io.BytesIO(bytes(json.dumps(data, indent=2), "ascii"))
+    f = discord.File(buf, filename=f"{interaction.user.name}.json")
 
     await interaction.response.send_message(
         content=None,
         embed=PreferencesEmbed(),
-        ephemeral=True,
         view=PreferencesButtons(),
         file=f,
+        ephemeral=True,
+        delete_after=1800,
     )
 
 

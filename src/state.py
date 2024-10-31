@@ -9,7 +9,6 @@ from config import *
 from models.setup import Setup
 from models.raid import Raid
 from models.player import Player
-from models.template import Template
 
 
 def load_file[T](reader: Callable, path: str, type) -> T:
@@ -44,7 +43,6 @@ def reload():
     global setup, players, raids, template
 
     setup = load_file(json.load, setupPath, Setup.from_json)
-    template = load_file(TextIOWrapper.read, scheduleTemplatePath, Template.from_string)
 
     raids = load_dir(raidsPath, str, Raid.from_json)
     players = load_dir(
@@ -55,7 +53,6 @@ def reload():
 
 
 setup: Setup
-template: Template
 raids: dict[RaidId, Raid]
 players: dict[PlayerId, Player]
 reload()
